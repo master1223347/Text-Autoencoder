@@ -1,1 +1,20 @@
-This folder is for datasets or small local data samples used by the project.
+hello world
+this project trains a text autoencoder
+autoencoders learn compressed representations
+sequence models can reconstruct short sentences
+machine learning models need examples to learn patterns
+text reconstruction is different from standard file compression
+pytorch makes it easier to build neural network experiments
+the encoder maps text into a latent vector
+the decoder recreates text from that latent vector
+small datasets are useful for quick experiments
+the model learns one character at a time
+clean project structure makes iteration easier
+training loss should fall as the model improves
+validation loss helps track generalization
+neural networks can memorize tiny datasets quickly
+character level models are simple to understand
+reconstruction quality depends on the training data
+longer training usually improves tiny demo datasets
+this sample file gives the project starter text
+you can replace these lines with your own corpus

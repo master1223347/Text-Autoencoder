@@ -1,35 +1,40 @@
 # Autoencoder Project
 
-This project is a simple PyTorch-based autoencoder workspace for learning, training, and evaluating reconstruction models on numeric data.
+This project is a PyTorch-based text autoencoder. It learns to encode text into a latent vector and decode that vector back into reconstructed text.
 
 The current implementation includes:
-- a fully connected autoencoder model
-- numeric data loading from `.npy`, `.csv`, and `.txt`
+- a character-level GRU encoder-decoder autoencoder
+- text dataset loading from `.txt`
+- vocabulary building from training text
 - training with validation loss tracking
-- evaluation using saved checkpoints
-- JSON output files for training history and evaluation results
+- text reconstruction from saved checkpoints
+- latent vector encoding and decoding commands
 
 ## Project Structure
 
-- `main.py`: Command-line entry point for training and evaluation.
+- `main.py`: Command-line entry point for training, evaluation, encoding, decoding, and reconstruction.
 - `config/config.py`: Shared project settings and output paths.
 - `data/`: Local datasets or sample data files.
-- `src/dataloader.py`: Data loading and PyTorch dataloader creation.
-- `src/model.py`: Autoencoder model definition.
+- `src/dataloader.py`: Text loading, vocabulary building, and dataloader creation.
+- `src/model.py`: Text autoencoder model definition.
 - `src/train.py`: Training loop and checkpoint saving.
-- `src/test.py`: Evaluation and checkpoint loading.
+- `src/test.py`: Evaluation, checkpoint loading, and text reconstruction helpers.
 - `src/utils.py`: Shared helpers for directories, devices, and JSON output.
 - `saved/`: Saved model checkpoints.
 - `outputs/`: Saved training history and evaluation results.
 
-## Supported Data Formats
+## Dataset Format
 
-The dataloader currently supports numeric datasets stored as:
-- `.npy`
-- `.csv`
-- `.txt`
+Training data should be a UTF-8 `.txt` file.
+Each non-empty line is treated as one training sample.
 
-Each row is treated as one sample. For autoencoder training, the same sample is used as both the input and reconstruction target.
+Example:
+
+```text
+hello world
+this is a text autoencoder
+sequence models can reconstruct short sentences
+```
 
 ## Usage
 
@@ -39,19 +44,35 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Train the model:
+Train the model on a text file:
 
 ```bash
-python3 main.py train path/to/data.csv
+python3 main.py train data/sampledata.txt
 ```
 
-Evaluate a trained model:
+Evaluate reconstruction loss on the dataset:
 
 ```bash
-python3 main.py evaluate path/to/data.csv
+python3 main.py evaluate data/sampledata.txt
 ```
 
-You can also override defaults such as `--epochs`, `--batch-size`, `--learning-rate`, `--save-path`, and `--results-path`.
+Reconstruct one string with a trained model:
+
+```bash
+python3 main.py reconstruct "hello world"
+```
+
+Encode one string into a latent vector:
+
+```bash
+python3 main.py encode "hello world"
+```
+
+Decode a saved latent vector back into text:
+
+```bash
+python3 main.py decode outputs/encoded_text.json
+```
 
 ## Outputs
 
@@ -61,7 +82,12 @@ Training saves:
 
 Evaluation saves:
 - reconstruction loss
-- one sample input
+- one sample input text
 - one sample reconstruction
+- one sample latent vector
 
-These evaluation outputs are written as JSON in `outputs/`.
+Reconstruction and encoding commands also save JSON outputs in `outputs/`.
+
+## Important Note
+
+This project learns a latent representation of text, but that does not automatically guarantee better real-world file compression than standard compression tools. The encoded latent vector is the model's internal representation for reconstruction.

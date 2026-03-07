@@ -29,6 +29,12 @@ def save_json(data: dict, output_path: str | Path) -> Path:
     return path
 
 
+def load_json(input_path: str | Path) -> dict:
+    """Load a dictionary from a JSON file."""
+    path = Path(input_path)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def log_message(message: str) -> None:
     """Print a project message."""
     print(message)

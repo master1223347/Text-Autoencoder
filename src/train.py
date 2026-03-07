@@ -1,4 +1,4 @@
-"""Training utilities for the autoencoder."""
+"""Training utilities for the text autoencoder."""
 
 from __future__ import annotations
 
@@ -9,46 +9,59 @@ from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from config.config import BATCH_SIZE, EPOCHS, HIDDEN_DIM, LATENT_DIM, LEARNING_RATE, SAVED_DIR
-from src.dataloader import create_dataloaders
-from src.model import Autoencoder
+from config.config import (
+    BATCH_SIZE,
+    EMBEDDING_DIM,
+    EPOCHS,
+    HIDDEN_DIM,
+    LATENT_DIM,
+    LEARNING_RATE,
+    MAX_SEQUENCE_LENGTH,
+    SAVED_DIR,
+    VALIDATION_SPLIT,
+)
+from src.dataloader import TextVocabulary, create_dataloaders
+from src.model import TextAutoencoder
 from src.utils import ensure_project_dirs, get_device
 
 
 def _run_epoch(
-    model: Autoencoder,
+    model: TextAutoencoder,
     dataloader: DataLoader,
     loss_fn: nn.Module,
+    pad_token_id: int,
     device: torch.device,
     optimizer: Adam | None = None,
 ) -> float:
-    """Run one training or evaluation epoch and return the average loss."""
+    """Run one training or evaluation epoch and return average token loss."""
     is_training = optimizer is not None
     model.train(mode=is_training)
 
     total_loss = 0.0
-    total_samples = 0
+    total_tokens = 0
 
-    for inputs, targets in dataloader:
-        inputs = inputs.to(device)
-        targets = targets.to(device)
+    for batch in dataloader:
+        input_ids = batch["input_ids"].to(device)
+        decoder_input_ids = batch["decoder_input_ids"].to(device)
+        target_ids = batch["target_ids"].to(device)
+        lengths = batch["length"].to(device)
 
         if optimizer is not None:
             optimizer.zero_grad()
 
         with torch.set_grad_enabled(is_training):
-            outputs = model(inputs)
-            loss = loss_fn(outputs, targets.view(targets.size(0), -1))
+            logits = model(input_ids, lengths, decoder_input_ids)
+            loss = loss_fn(logits.reshape(-1, logits.size(-1)), target_ids.reshape(-1))
 
             if optimizer is not None:
                 loss.backward()
                 optimizer.step()
 
-        batch_size = inputs.size(0)
-        total_loss += loss.item() * batch_size
-        total_samples += batch_size
+        token_count = int(target_ids.ne(pad_token_id).sum().item())
+        total_loss += loss.item()
+        total_tokens += token_count
 
-    return total_loss / total_samples
+    return total_loss / total_tokens
 
 
 def train_autoencoder(
@@ -56,39 +69,53 @@ def train_autoencoder(
     epochs: int = EPOCHS,
     batch_size: int = BATCH_SIZE,
     learning_rate: float = LEARNING_RATE,
-    validation_split: float = 0.2,
+    validation_split: float = VALIDATION_SPLIT,
+    max_sequence_length: int = MAX_SEQUENCE_LENGTH,
     save_path: str | Path | None = None,
-) -> tuple[Autoencoder, dict[str, list[float]]]:
-    """Train an autoencoder on numeric data and save the learned weights."""
+) -> tuple[TextAutoencoder, TextVocabulary, dict[str, list[float]]]:
+    """Train a text autoencoder and save a checkpoint with vocabulary data."""
     if epochs <= 0:
         raise ValueError("epochs must be greater than 0")
     if learning_rate <= 0:
         raise ValueError("learning_rate must be greater than 0")
 
-    train_loader, validation_loader = create_dataloaders(
+    train_loader, validation_loader, vocabulary = create_dataloaders(
         data_path=data_path,
         batch_size=batch_size,
         validation_split=validation_split,
+        max_sequence_length=max_sequence_length,
     )
 
-    sample_batch, _ = next(iter(train_loader))
-    input_dim = sample_batch.view(sample_batch.size(0), -1).size(1)
-
     device = get_device()
-    model = Autoencoder(
-        input_dim=input_dim,
+    model = TextAutoencoder(
+        vocab_size=len(vocabulary),
+        embedding_dim=EMBEDDING_DIM,
+        pad_token_id=vocabulary.pad_id,
         latent_dim=LATENT_DIM,
         hidden_dim=HIDDEN_DIM,
     ).to(device)
 
     optimizer = Adam(model.parameters(), lr=learning_rate)
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.CrossEntropyLoss(ignore_index=vocabulary.pad_id, reduction="sum")
 
     history = {"train_loss": [], "val_loss": []}
 
     for epoch in range(epochs):
-        train_loss = _run_epoch(model, train_loader, loss_fn, device, optimizer=optimizer)
-        val_loss = _run_epoch(model, validation_loader, loss_fn, device)
+        train_loss = _run_epoch(
+            model,
+            train_loader,
+            loss_fn,
+            vocabulary.pad_id,
+            device,
+            optimizer=optimizer,
+        )
+        val_loss = _run_epoch(
+            model,
+            validation_loader,
+            loss_fn,
+            vocabulary.pad_id,
+            device,
+        )
 
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)
@@ -105,10 +132,14 @@ def train_autoencoder(
     checkpoint = {
         "state_dict": model.state_dict(),
         "model_config": {
-            "input_dim": input_dim,
+            "vocab_size": len(vocabulary),
+            "embedding_dim": EMBEDDING_DIM,
             "hidden_dim": HIDDEN_DIM,
             "latent_dim": LATENT_DIM,
+            "pad_token_id": vocabulary.pad_id,
+            "max_sequence_length": max_sequence_length,
         },
+        "vocabulary": vocabulary.to_dict(),
         "training_config": {
             "epochs": epochs,
             "batch_size": batch_size,
@@ -119,4 +150,4 @@ def train_autoencoder(
     }
     torch.save(checkpoint, target_path)
 
-    return model, history
+    return model, vocabulary, history
