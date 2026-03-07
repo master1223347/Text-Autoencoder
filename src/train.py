@@ -102,6 +102,21 @@ def train_autoencoder(
     ensure_project_dirs()
     target_path = Path(save_path) if save_path is not None else SAVED_DIR / "autoencoder.pt"
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(model.state_dict(), target_path)
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "model_config": {
+            "input_dim": input_dim,
+            "hidden_dim": HIDDEN_DIM,
+            "latent_dim": LATENT_DIM,
+        },
+        "training_config": {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            "validation_split": validation_split,
+        },
+        "history": history,
+    }
+    torch.save(checkpoint, target_path)
 
     return model, history
