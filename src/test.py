@@ -10,6 +10,7 @@ from torch import nn
 from config.config import BATCH_SIZE, HIDDEN_DIM, LATENT_DIM, SAVED_DIR
 from src.dataloader import create_dataloaders
 from src.model import Autoencoder
+from src.utils import get_device
 
 
 def load_trained_model(
@@ -46,7 +47,7 @@ def evaluate_autoencoder(
     sample_batch, _ = next(iter(validation_loader))
     input_dim = sample_batch.view(sample_batch.size(0), -1).size(1)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     checkpoint_path = Path(model_path) if model_path is not None else SAVED_DIR / "autoencoder.pt"
     model = load_trained_model(checkpoint_path, input_dim=input_dim, device=device)
     loss_fn = nn.MSELoss()

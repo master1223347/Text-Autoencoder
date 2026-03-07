@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from config.config import BATCH_SIZE, EPOCHS, HIDDEN_DIM, LATENT_DIM, LEARNING_RATE, SAVED_DIR
 from src.dataloader import create_dataloaders
 from src.model import Autoencoder
+from src.utils import ensure_project_dirs, get_device
 
 
 def _run_epoch(
@@ -73,7 +74,7 @@ def train_autoencoder(
     sample_batch, _ = next(iter(train_loader))
     input_dim = sample_batch.view(sample_batch.size(0), -1).size(1)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     model = Autoencoder(
         input_dim=input_dim,
         latent_dim=LATENT_DIM,
@@ -98,6 +99,7 @@ def train_autoencoder(
             f"- val_loss: {val_loss:.6f}"
         )
 
+    ensure_project_dirs()
     target_path = Path(save_path) if save_path is not None else SAVED_DIR / "autoencoder.pt"
     target_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), target_path)
