@@ -1,0 +1,5 @@
+# Basic packages for future model development, visualization, and experiments.
+torch
+torchvision
+numpy
+matplotlib
